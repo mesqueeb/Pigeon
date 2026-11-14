@@ -3,6 +3,12 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmesqueeb%2FPigeon%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/mesqueeb/Pigeon)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmesqueeb%2FPigeon%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mesqueeb/Pigeon)
 
+```sh
+git clone --branch v0.0.1 https://github.com/mesqueeb/Pigeon.git
+cd Pigeon
+swift build -c release
+```
+
 A tiny Swift command-line app for sending email from your Mac. Plain-text messages, your own SMTP provider, and 0 Swift dependencies!
 
 Requires macOS 13+ and Swift 6+. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
@@ -10,7 +16,6 @@ Requires macOS 13+ and Swift 6+. Uses macOS’s built-in curl for SMTP with veri
 ## Setup
 
 ```sh
-swift build -c release
 mkdir -p .local
 cp config.example.json .local/config.json
 cp .env.example .env
@@ -41,8 +46,6 @@ Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then `.env` in t
 
 Messages are sent once, without retries or a Sent-folder copy. If sending fails, check the destination before retrying.
 
-For all options:
+## Documentation
 
-```sh
-.build/release/pigeon --help
-```
+Run `.build/release/pigeon --help` for the command reference. See the [source](Sources/Pigeon) for implementation details.
