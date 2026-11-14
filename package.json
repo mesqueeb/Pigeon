@@ -5,15 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "swift build -c release",
-    "release": "pnpm run build && bumpp --no-push --all -x \"pnpm run sync-readme\" && git push --follow-tags && gh release create $(git describe --tags --abbrev=0) --generate-notes --notes \"$(git log --pretty='- %s  %h' $(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD~1)\"",
-    "sync-readme": "replace-regex --from=\"\\d+\\.\\d+\\.\\d+\" --to=\"$npm_package_version\" README.md"
+    "release": "pnpm run build && bumpp --no-push --all && git push --follow-tags && gh release create $(git describe --tags --abbrev=0) --generate-notes --notes \"$(git log --pretty='- %s  %h' $(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD~1)\""
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "bumpp": "^12.3.0",
-    "replace-regex": "^0.0.4"
+    "bumpp": "^12.3.0"
   },
   "funding": "https://github.com/sponsors/mesqueeb",
   "repository": {

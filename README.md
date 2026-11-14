@@ -3,19 +3,16 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmesqueeb%2FPigeon%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/mesqueeb/Pigeon)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmesqueeb%2FPigeon%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mesqueeb/Pigeon)
 
-```sh
-git clone --branch v0.0.1 https://github.com/mesqueeb/Pigeon.git
-cd Pigeon
-swift build -c release
-```
-
 A tiny Swift command-line app for sending email from your Mac. Plain-text messages, your own SMTP provider, and 0 Swift dependencies!
 
 Requires macOS 13+ and Swift 6+. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
 
 ## Setup
 
+From the repository directory:
+
 ```sh
+swift build -c release
 mkdir -p .local
 cp config.example.json .local/config.json
 cp .env.example .env
