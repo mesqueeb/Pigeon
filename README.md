@@ -41,7 +41,15 @@ Remove `--dry-run` to send. Repeat `--to` for more recipients.
 
 Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then `.env` in the current directory. Use `--env-file FILE` to choose another file.
 
-Messages are sent once, without retries or a Sent-folder copy. If sending fails, check the destination before retrying.
+After sending, Pigeon saves the same message to your IMAP Sent folder. Configure `imap.host`, `imap.port`, and `imap.sentMailbox` in your JSON. The iCloud example uses `imap.mail.me.com:993` and `Sent Messages`, shared by the account’s aliases. Other providers may already save SMTP submissions automatically; appending a copy there can create duplicates.
+
+Pigeon checks access to the folder before sending. If SMTP accepts the email but saving fails, it exits with code `2` and keeps a private `.eml` recovery file. **Do not resend.** After checking Sent for an existing copy, save only the missing copy:
+
+```sh
+.build/release/pigeon save-sent --config .local/config.json --message-file "/path/from/the/error.eml"
+```
+
+Messages and copies are never retried automatically. If submission fails, check the destination before retrying.
 
 ## Documentation
 

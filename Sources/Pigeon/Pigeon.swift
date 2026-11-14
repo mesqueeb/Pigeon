@@ -3,7 +3,12 @@ import Foundation
 
 @main enum Pigeon {
   static func main() {
-    do { try run(arguments: Array(CommandLine.arguments.dropFirst())) } catch {
+    do { try run(arguments: Array(CommandLine.arguments.dropFirst())) } catch let error
+      as SentCopyError
+    {
+      FileHandle.standardError.write(Data("pigeon: \(error)\n".utf8))
+      exit(2)
+    } catch {
       FileHandle.standardError.write(Data("pigeon: \(error)\n".utf8))
       exit(1)
     }
@@ -15,7 +20,7 @@ import Foundation
       return
     }
     let command = arguments[0]
-    guard ["send", "credential"].contains(command) else {
+    guard ["send", "credential", "save-sent"].contains(command) else {
       throw PigeonError("Unknown command. Run pigeon --help.")
     }
     var values: [String: String] = [:]
@@ -31,8 +36,9 @@ import Foundation
         index += 1
         continue
       }
-      guard ["--config", "--to", "--subject", "--body-file", "--env-file"].contains(option),
-        index + 1 < arguments.count
+      guard
+        ["--config", "--to", "--subject", "--body-file", "--env-file", "--message-file"]
+          .contains(option), index + 1 < arguments.count
       else { throw PigeonError("Unknown option or missing value: \(option)") }
       let value = arguments[index + 1]
       if option == "--to" {
@@ -59,6 +65,30 @@ import Foundation
       print("The selected credential is accessible. Its value was not displayed.")
       return
     }
+    if command == "save-sent" {
+      guard let path = values["--message-file"],
+        values.keys.allSatisfy({ ["--config", "--env-file", "--message-file"].contains($0) }),
+        recipients.isEmpty, flags.isEmpty
+      else {
+        throw PigeonError(
+          "save-sent requires --config and --message-file, with optional --env-file."
+        )
+      }
+      let password = try Credential.read(
+        envFile: values["--env-file"] ?? ".env",
+        explicitlySelected: values["--env-file"] != nil
+      )
+      try IMAP.saveSent(
+        configuration: configuration,
+        messageURL: URL(fileURLWithPath: path),
+        password: password
+      )
+      print("Saved a copy to \(configuration.imap.sentMailbox). No email was sent.")
+      return
+    }
+    guard values["--message-file"] == nil else {
+      throw PigeonError("--message-file is only for save-sent.")
+    }
     guard let subject = values["--subject"], let bodyPath = values["--body-file"] else {
       throw PigeonError("send requires --to, --subject and --body-file.")
     }
@@ -77,14 +107,14 @@ import Foundation
       envFile: values["--env-file"] ?? ".env",
       explicitlySelected: values["--env-file"] != nil
     )
-    try SMTP.submit(
+    try MailClient.submit(
       configuration: configuration,
       message: message,
       rendered: rendered,
       password: password
     )
     print(
-      "Submitted to \(configuration.host) as \(configuration.from). Recipient delivery and received headers still need verification."
+      "Submitted as \(configuration.from) and saved to \(configuration.imap.sentMailbox). Recipient delivery still needs verification."
     )
   }
 
@@ -93,6 +123,7 @@ import Foundation
 
     pigeon send --config FILE --to ADDRESS --subject TEXT --body-file FILE [--dry-run] [--env-file FILE]
     pigeon credential --config FILE [--env-file FILE]
+    pigeon save-sent --config FILE --message-file FILE [--env-file FILE]
 
     Repeat --to for multiple recipients. Messages are UTF-8 plain text.
     --dry-run previews the message without reading credentials or contacting the server.
@@ -101,6 +132,9 @@ import Foundation
     credential checks that a nonempty password is available without displaying it.
 
     SMTP uses required STARTTLS with certificate verification through /usr/bin/curl.
-    Pigeon performs one submission, does not retry, and does not create a Sent-folder copy.
+    After SMTP acceptance, the same message is saved to the configured IMAP Sent mailbox.
+    Exit 2 means SMTP accepted the email but saving the copy failed. Do not resend.
+    save-sent saves an existing .eml without sending. Check Sent before retrying a save.
+    Pigeon does not retry automatically. IMAP uses implicit TLS with certificate verification.
     """
 }

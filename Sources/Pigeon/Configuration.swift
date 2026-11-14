@@ -5,6 +5,7 @@ struct Configuration: Decodable {
   let port: Int
   let username: String
   let from: String
+  let imap: IMAPConfiguration
   let senderName: String
 
   func validate() throws {
@@ -15,6 +16,7 @@ struct Configuration: Decodable {
     guard !host.isEmpty, host.unicodeScalars.allSatisfy(hostnameCharacters.contains),
       (1 ... 65535).contains(port)
     else { throw PigeonError("Use a DNS hostname and a port between 1 and 65535.") }
+    try imap.validate()
     try validateAddress(from)
     guard !username.isEmpty, !username.contains(":"),
       !username.unicodeScalars.contains(where: { controlCharacters.contains($0) }),

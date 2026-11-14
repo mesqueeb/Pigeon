@@ -3,5 +3,10 @@
   "port": 587,
   "username": "you@icloud.com",
   "from": "you@example.com",
-  "senderName": "Your Name"
+  "senderName": "Your Name",
+  "imap": {
+    "host": "imap.mail.me.com",
+    "port": 993,
+    "sentMailbox": "Sent Messages"
+  }
 }
