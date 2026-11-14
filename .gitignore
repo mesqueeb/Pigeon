@@ -30,6 +30,12 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.local/
+.cache/
+node_modules/
+.env
+.env.*
+!.env.example
 
 # CocoaPods
 #

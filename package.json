@@ -1,0 +1,24 @@
+{
+  "name": "Pigeon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "swift build -c release",
+    "release": "pnpm run build && bumpp --no-push --all && git push --follow-tags && gh release create $(git describe --tags --abbrev=0) --generate-notes"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "bumpp": "^12.3.0"
+  },
+  "funding": "https://github.com/sponsors/mesqueeb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mesqueeb/Pigeon.git"
+  },
+  "homepage": "https://github.com/mesqueeb/Pigeon#readme",
+  "bugs": "https://github.com/mesqueeb/Pigeon/issues",
+  "packageManager": "pnpm@11.28.3"
+}
