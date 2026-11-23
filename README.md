@@ -37,7 +37,9 @@ Write your email in `.local/message.txt`, then preview it:
 .build/release/pigeon send --config .local/config.json --to friend@example.com --subject "Hello!" --body-file .local/message.txt --dry-run
 ```
 
-Remove `--dry-run` to send. Repeat `--to` for more recipients.
+Remove `--dry-run` to send. Repeat `--to`, `--cc`, or `--bcc` to add more recipients of each type. At least one `--to` address is required. BCC addresses are used for SMTP delivery and omitted from the message headers.
+
+To reply in an existing thread, pass the Message-ID of the message you’re replying to with `--in-reply-to '<id@example.com>'` and use its subject with a `Re:` prefix. If that message has a `References` header, pass each ID in order with `--reference '<id@example.com>'`. If it has no `References` and a single `In-Reply-To` ID, pass that ID with `--reference`.
 
 Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then `.env` in the current directory. Use `--env-file FILE` to choose another file.
 

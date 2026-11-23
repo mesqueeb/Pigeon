@@ -30,10 +30,11 @@ enum MailClient {
     try IMAP.checkMailbox(configuration: configuration, password: password)
     do {
       try Curl.run(
-        arguments: [
-          "--proto", "=smtp", "--url", "smtp://\(configuration.host):\(configuration.port)",
-          "--mail-from", configuration.from, "--upload-file", messageURL.path,
-        ] + message.recipients.flatMap { ["--mail-rcpt", $0] },
+        arguments: smtpArguments(
+          configuration: configuration,
+          message: message,
+          messageURL: messageURL
+        ),
         username: configuration.username,
         password: password
       )
@@ -73,6 +74,17 @@ enum MailClient {
         "SMTP accepted the email, but saving the Sent copy failed: \(error) Do not resend. Message saved at \(recoveryURL.path). Use save-sent --message-file with that file after checking Sent for an existing copy."
       )
     }
+  }
+
+  static func smtpArguments(
+    configuration: Configuration,
+    message: Message,
+    messageURL: URL
+  ) -> [String] {
+    [
+      "--proto", "=smtp", "--url", "smtp://\(configuration.host):\(configuration.port)",
+      "--mail-from", configuration.from, "--upload-file", messageURL.path,
+    ] + message.envelopeRecipients.flatMap { ["--mail-rcpt", $0] }
   }
 }
 
