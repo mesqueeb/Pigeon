@@ -5,7 +5,7 @@
 
 A tiny Swift command-line app for sending email from your Mac. Plain-text messages, your own SMTP provider, and 0 Swift dependencies!
 
-Runs on macOS 13 or later on Apple silicon and Intel Macs. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
+Runs on Apple silicon Macs with macOS 13 or later. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
 
 ## Install
 

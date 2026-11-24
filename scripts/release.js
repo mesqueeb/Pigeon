@@ -12,8 +12,10 @@ const root = fileURLToPath(new URL("../", import.meta.url))
 const repository = "mesqueeb/Pigeon"
 const tapFormula = "repos/mesqueeb/homebrew-tap/contents/Formula/pigeon.rb"
 const releases = join(root, ".build", "releases")
-const formulaURL = /^(  url ")https:\/\/github\.com\/mesqueeb\/Pigeon\/releases\/download\/(v\d+\.\d+\.\d+)\/pigeon-\2-macos-universal\.zip"$/m
+const formulaURL = /^(  url ")https:\/\/github\.com\/mesqueeb\/Pigeon\/releases\/download\/(v\d+\.\d+\.\d+)\/pigeon-\2-macos-(?:universal|arm64)\.zip"$/m
 const formulaChecksum = /^(  sha256 ")[0-9a-f]{64}"$/m
+const formulaMacOSRequirement = /^  depends_on macos: :\w+$/m
+const formulaArchitectureRequirement = /^  depends_on arch: :\w+\n/m
 const signingIdentity = process.env.PIGEON_SIGNING_IDENTITY
   ?? "Developer ID Application: Lucas Eugene M. Van Ammel (8ZRM3D7KC6)"
 const notaryProfile = process.env.PIGEON_NOTARY_PROFILE ?? "AC_PASSWORD"
@@ -38,7 +40,9 @@ function readTapFormula() {
   const { content, sha } = JSON.parse(run("gh", ["api", tapFormula + "?ref=main"], { capture: true }))
   const formula = Buffer.from(content, "base64").toString("utf8")
   const url = formula.match(formulaURL)
-  if (!url || !formulaChecksum.test(formula)) throw new Error("Unexpected Pigeon formula in the tap.")
+  if (!url || !formulaChecksum.test(formula) || !formulaMacOSRequirement.test(formula)) {
+    throw new Error("Unexpected Pigeon formula in the tap.")
+  }
   return { formula, sha, tag: url[2] }
 }
 
@@ -48,6 +52,8 @@ function updateTap({ tag, archiveName, checksum }) {
   const formula = tap.formula
     .replace(formulaURL, (_, prefix) => prefix + url + '"')
     .replace(formulaChecksum, (_, prefix) => prefix + checksum + '"')
+    .replace(formulaArchitectureRequirement, "")
+    .replace(formulaMacOSRequirement, "  depends_on arch: :arm64\n$&")
   if (formula === tap.formula) return
   if (tag.localeCompare(tap.tag, "en", { numeric: true }) <= 0) {
     throw new Error("The tap already points to " + tap.tag + " with different release details.")
@@ -69,16 +75,16 @@ function buildArchive({ tag, archive, notarize }) {
     const payload = join(stage, "pigeon-" + tag)
     mkdirSync(payload)
     const build = [
-      "build", "-c", "release", "--arch", "arm64", "--arch", "x86_64",
+      "build", "-c", "release", "--arch", "arm64",
       "--scratch-path", join(releases, "swift-build"),
     ]
     run("swift", build)
     const binary = join(run("swift", [...build, "--show-bin-path"], { capture: true }), "pigeon")
     const executable = join(payload, "pigeon")
     copyFileSync(binary, executable)
-    const architectures = run("xcrun", ["lipo", "-archs", executable], { capture: true }).split(/\s+/)
-    if (!architectures.includes("arm64") || !architectures.includes("x86_64")) {
-      throw new Error("The release executable must support arm64 and x86_64.")
+    const architecture = run("xcrun", ["lipo", "-archs", executable], { capture: true })
+    if (architecture !== "arm64") {
+      throw new Error("The release executable must be arm64 only.")
     }
     const signing = notarize
       ? ["--timestamp", "--options", "runtime", "--sign", signingIdentity]
@@ -116,10 +122,14 @@ function version() {
   return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version
 }
 
+function releaseArchiveName(tag) {
+  return "pigeon-" + tag + "-macos-arm64.zip"
+}
+
 function publish(tag) {
   const ref = run("git", ["rev-parse", tag + "^{}", "HEAD"], { capture: true }).split("\n")
   if (ref[0] !== ref[1]) throw new Error(tag + " must point to the current release commit.")
-  const archiveName = "pigeon-" + tag + "-macos-universal.zip"
+  const archiveName = releaseArchiveName(tag)
   const archive = join(releases, tag, archiveName)
   let release = releaseInfo(tag)
   const findAsset = () => release?.assets.find(asset => asset.name === archiveName)
@@ -142,8 +152,8 @@ function publish(tag) {
   if (!release) {
     const previous = run("git", ["describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", tag + "^"], { capture: true })
     const changes = run("git", ["log", "--format=- %s  %h", previous + ".." + tag + "^"], { capture: true })
-    const install = "Install on macOS 13 or later with brew install mesqueeb/tap/pigeon.\n\n"
-      + "The archive includes a universal executable and configuration examples for Apple silicon and Intel."
+    const install = "On Apple silicon Macs running macOS 13 or later, install with brew install mesqueeb/tap/pigeon.\n\n"
+      + "The archive includes an Apple silicon executable and configuration examples."
     const notes = changes ? install + "\n\n" + changes : install
     run("gh", [
       "release", "create", tag, archive, "--repo", repository, "--verify-tag", "--draft", "--title", tag,
@@ -191,7 +201,7 @@ async function main() {
   if (options["dry-run"]) {
     mkdirSync(releases, { recursive: true })
     const preview = mkdtempSync(join(releases, "preview-"))
-    const archive = join(preview, "pigeon-" + currentTag + "-macos-universal.zip")
+    const archive = join(preview, releaseArchiveName(currentTag))
     buildArchive({ tag: currentTag, archive, notarize: false })
     console.log("Preview archive at " + archive)
     return
