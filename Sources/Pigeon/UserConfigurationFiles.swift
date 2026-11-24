@@ -37,8 +37,8 @@ struct UserConfigurationFiles {
          pigeon send --to friend@example.com --subject "Hello" --body-file message.txt --dry-run
          Remove --dry-run when you're ready to send.
 
-      Install the optional skill for Claude Code and Codex.
-        npx skills add mesqueeb/Pigeon --skill pigeon --global --agent claude-code codex
+      Install the optional agent skill.
+        npx skills add mesqueeb/Pigeon --skill pigeon --global
       """
     )
   }

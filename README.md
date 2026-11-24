@@ -49,10 +49,10 @@ Run `pigeon credential` to check that Pigeon can read the password before you se
 
 ## Agent skill
 
-After installing Pigeon with Homebrew and configuring your account, install the [Pigeon skill](.agents/skills/pigeon/SKILL.md) for Claude Code and Codex.
+After installing Pigeon with Homebrew and configuring your account, install the [Pigeon skill](.agents/skills/pigeon/SKILL.md) for your coding agent.
 
 ```sh
-npx skills add mesqueeb/Pigeon --skill pigeon --global --agent claude-code codex
+npx skills add mesqueeb/Pigeon --skill pigeon --global
 ```
 
 The skill helps agents choose Pigeon when you ask to send or reply from a configured alias that their mail connector cannot select. Sending requires a macOS session with access to your configured Pigeon CLI.
