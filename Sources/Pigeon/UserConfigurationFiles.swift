@@ -23,8 +23,24 @@ struct UserConfigurationFiles {
     )
     try installTemplate(Self.configurationExample + "\n", at: config)
     try installTemplate("PIGEON_SMTP_PASSWORD=\n", at: env)
-    print("Edit \(config.path) with your SMTP and IMAP settings.")
-    print("Set PIGEON_SMTP_PASSWORD in \(env.path).")
+    print(
+      """
+
+      1. Edit \(config.path).
+         For iCloud, set username to your iCloud login and from to your configured sender address.
+         For another provider, also update the SMTP and IMAP settings.
+         Set senderName to the name recipients should see.
+      2. Set PIGEON_SMTP_PASSWORD in \(env.path).
+         For iCloud, use an app-specific password.
+      3. Run pigeon credential to check that Pigeon can read the password.
+      4. Save a message as message.txt, then preview it.
+         pigeon send --to friend@example.com --subject "Hello" --body-file message.txt --dry-run
+         Remove --dry-run when you're ready to send.
+
+      Install the optional skill for Claude Code and Codex.
+        npx skills add mesqueeb/Pigeon --skill pigeon --global --agent claude-code codex
+      """
+    )
   }
 
   private func installTemplate(_ template: String, at destination: URL) throws {

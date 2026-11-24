@@ -45,6 +45,18 @@ Pigeon creates both files with permissions that restrict access to your user. Ke
 
 Using iCloud? Log in with your primary iCloud email and an [app-specific password](https://support.apple.com/en-us/102654). Your `from` address can be a custom address configured for that account.
 
+Run `pigeon credential` to check that Pigeon can read the password before you send.
+
+## Agent skill
+
+After installing Pigeon with Homebrew and configuring your account, install the [Pigeon skill](.agents/skills/pigeon/SKILL.md) for Claude Code and Codex.
+
+```sh
+npx skills add mesqueeb/Pigeon --skill pigeon --global --agent claude-code codex
+```
+
+The skill helps agents choose Pigeon when you ask to send or reply from a configured alias that their mail connector cannot select. Sending requires a macOS session with access to your configured Pigeon CLI.
+
 ## Usage
 
 Write your email in `message.txt`, then preview it.

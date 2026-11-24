@@ -160,13 +160,14 @@ import Foundation
 
     pigeon init creates example config.json and .env files in ~/.config/pigeon.
     Commands use that config unless you pass --config FILE.
+    Set from in the config to a sender address your SMTP account can use.
     Repeat --to, --cc, or --bcc for multiple recipients. At least one --to is required.
     Reply with --in-reply-to '<id@example.com>', using the Message-ID of the message
     you're replying to.
     Keep that message's subject with a Re: prefix. Repeat --reference for its References IDs
     in order. If there are no References and a single In-Reply-To ID, pass it via --reference.
     Messages are UTF-8 plain text.
-    --dry-run previews the message without reading credentials or contacting the server.
+    --dry-run previews the sender and message without reading credentials or contacting the server.
     Credentials come from PIGEON_SMTP_PASSWORD in the environment, then ~/.config/pigeon/.env.
     With an explicit --config, the fallback is .env in the current directory.
     --env-file overrides the fallback file. Values are literal; shell expansion is not supported.
