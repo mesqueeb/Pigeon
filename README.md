@@ -29,47 +29,42 @@ Use `.build/release/pigeon` in place of `pigeon` in the examples below.
 
 ## Setup
 
-Choose a working directory for your SMTP configuration and credentials. If you built from source, run this from the repository directory and set `pigeon_examples=.` in the first line.
+Run this once to create your user configuration files.
 
 ```sh
-pigeon_examples="$(brew --prefix mesqueeb/tap/pigeon)/share/pigeon"
-mkdir -p .local
-cp -i "$pigeon_examples/config.example.json" .local/config.json
-if [ ! -e .env ]; then
-  install -m 600 "$pigeon_examples/.env.example" .env
-fi
+pigeon init
 ```
 
-Add your SMTP and sender details to `.local/config.json` and your password to `.env`.
+Edit `~/.config/pigeon/config.json` with your SMTP settings, sender address, and IMAP Sent mailbox. Set your password in `~/.config/pigeon/.env`.
 
 ```dotenv
 PIGEON_SMTP_PASSWORD=your-app-specific-password
 ```
 
-Pigeon’s source repository ignores both files. Keep `.env` private because it stores the password as plain text.
+Pigeon creates both files with permissions that restrict access to your user. Keep `.env` private because it stores the password as plain text. Running `pigeon init` again preserves existing files.
 
 Using iCloud? Log in with your primary iCloud email and an [app-specific password](https://support.apple.com/en-us/102654). Your `from` address can be a custom address configured for that account.
 
 ## Usage
 
-Write your email in `.local/message.txt`, then preview it:
+Write your email in `message.txt`, then preview it.
 
 ```sh
-pigeon send --config .local/config.json --to friend@example.com --subject "Hello!" --body-file .local/message.txt --dry-run
+pigeon send --to friend@example.com --subject "Hello!" --body-file message.txt --dry-run
 ```
 
 Remove `--dry-run` to send. Repeat `--to`, `--cc`, or `--bcc` to add more recipients of each type. At least one `--to` address is required. BCC addresses are used for SMTP delivery and omitted from the message headers.
 
 To reply in an existing thread, pass the Message-ID of the message you’re replying to with `--in-reply-to '<id@example.com>'` and use its subject with a `Re:` prefix. If that message has a `References` header, pass each ID in order with `--reference '<id@example.com>'`. If it has no `References` and a single `In-Reply-To` ID, pass that ID with `--reference`.
 
-Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then `.env` in the current directory. Use `--env-file FILE` to choose another file.
+Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then from `~/.config/pigeon/.env`. Pass `--config FILE` to use a different account config. With an explicit config, the fallback credential file is `.env` in the current directory. Use `--env-file FILE` to choose the fallback file for either setup.
 
 After sending, Pigeon saves the same message to your IMAP Sent folder. Configure `imap.host`, `imap.port`, and `imap.sentMailbox` in your JSON. The iCloud example uses `imap.mail.me.com:993` and `Sent Messages`, shared by the account’s aliases. Other providers may already save SMTP submissions automatically; appending a copy there can create duplicates.
 
 Pigeon checks access to the folder before sending. If SMTP accepts the email but saving fails, it exits with code `2` and keeps a private `.eml` recovery file. **Do not resend.** After checking Sent for an existing copy, save only the missing copy:
 
 ```sh
-pigeon save-sent --config .local/config.json --message-file "/path/from/the/error.eml"
+pigeon save-sent --message-file "/path/from/the/error.eml"
 ```
 
 Messages and copies are never retried automatically. If submission fails, check the destination before retrying.

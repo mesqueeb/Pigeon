@@ -15,11 +15,20 @@ import Foundation
   }
 
   private static func run(arguments: [String]) throws {
+    let defaultFiles = UserConfigurationFiles()
     if arguments.isEmpty || arguments == ["--help"] || arguments == ["help"] {
       print(help)
+      if arguments.isEmpty, !FileManager.default.fileExists(atPath: defaultFiles.config.path) {
+        print("\nRun pigeon init to set up your mail account.")
+      }
       return
     }
     let command = arguments[0]
+    if command == "init" {
+      guard arguments.count == 1 else { throw PigeonError("pigeon init does not accept options.") }
+      try defaultFiles.initialize()
+      return
+    }
     guard ["send", "credential", "save-sent"].contains(command) else {
       throw PigeonError("Unknown command. Run pigeon --help.")
     }
@@ -52,19 +61,22 @@ import Foundation
       }
       index += 2
     }
-    guard let configPath = values["--config"] else { throw PigeonError("--config is required.") }
+    let explicitConfig = values["--config"]
+    let configURL = explicitConfig.map { URL(fileURLWithPath: $0) } ?? defaultFiles.config
+    if explicitConfig == nil, !FileManager.default.fileExists(atPath: configURL.path) {
+      throw PigeonError("No default config at \(configURL.path). Run pigeon init to set it up.")
+    }
     let configuration = try JSONDecoder()
-      .decode(Configuration.self, from: Data(contentsOf: URL(fileURLWithPath: configPath)))
+      .decode(Configuration.self, from: Data(contentsOf: configURL))
     try configuration.validate()
+    let explicitEnvFile = values["--env-file"]
+    let envFile = explicitEnvFile ?? (explicitConfig == nil ? defaultFiles.env.path : ".env")
 
     if command == "credential" {
       guard values.keys.allSatisfy({ ["--config", "--env-file"].contains($0) }),
         repeatedValues.isEmpty, flags.isEmpty
       else { throw PigeonError("credential accepts --config and --env-file.") }
-      _ = try Credential.read(
-        envFile: values["--env-file"] ?? ".env",
-        explicitlySelected: values["--env-file"] != nil
-      )
+      _ = try Credential.read(envFile: envFile, explicitlySelected: explicitEnvFile != nil)
       print("The selected credential is accessible. Its value was not displayed.")
       return
     }
@@ -74,12 +86,12 @@ import Foundation
         repeatedValues.isEmpty, flags.isEmpty
       else {
         throw PigeonError(
-          "save-sent requires --config and --message-file, with optional --env-file."
+          "save-sent requires --message-file, with optional --config and --env-file."
         )
       }
       let password = try Credential.read(
-        envFile: values["--env-file"] ?? ".env",
-        explicitlySelected: values["--env-file"] != nil
+        envFile: envFile,
+        explicitlySelected: explicitEnvFile != nil
       )
       try IMAP.saveSent(
         configuration: configuration,
@@ -124,10 +136,7 @@ import Foundation
       print("\nDry run: no credential was read and no network connection was made.")
       return
     }
-    let password = try Credential.read(
-      envFile: values["--env-file"] ?? ".env",
-      explicitlySelected: values["--env-file"] != nil
-    )
+    let password = try Credential.read(envFile: envFile, explicitlySelected: explicitEnvFile != nil)
     try MailClient.submit(
       configuration: configuration,
       message: message,
@@ -142,12 +151,15 @@ import Foundation
   private static let help = """
     Pigeon — a small macOS SMTP client
 
-    pigeon send --config FILE --to ADDRESS --subject TEXT --body-file FILE
+    pigeon init
+    pigeon send --to ADDRESS --subject TEXT --body-file FILE [--config FILE]
                 [--cc ADDRESS] [--bcc ADDRESS] [--in-reply-to MESSAGE-ID]
                 [--reference MESSAGE-ID] [--dry-run] [--env-file FILE]
-    pigeon credential --config FILE [--env-file FILE]
-    pigeon save-sent --config FILE --message-file FILE [--env-file FILE]
+    pigeon credential [--config FILE] [--env-file FILE]
+    pigeon save-sent --message-file FILE [--config FILE] [--env-file FILE]
 
+    pigeon init creates example config.json and .env files in ~/.config/pigeon.
+    Commands use that config unless you pass --config FILE.
     Repeat --to, --cc, or --bcc for multiple recipients. At least one --to is required.
     Reply with --in-reply-to '<id@example.com>', using the Message-ID of the message
     you're replying to.
@@ -155,8 +167,9 @@ import Foundation
     in order. If there are no References and a single In-Reply-To ID, pass it via --reference.
     Messages are UTF-8 plain text.
     --dry-run previews the message without reading credentials or contacting the server.
-    Credentials come from PIGEON_SMTP_PASSWORD in the environment, then .env in the current directory.
-    --env-file selects a different file. Values are literal; shell expansion is not supported.
+    Credentials come from PIGEON_SMTP_PASSWORD in the environment, then ~/.config/pigeon/.env.
+    With an explicit --config, the fallback is .env in the current directory.
+    --env-file overrides the fallback file. Values are literal; shell expansion is not supported.
     credential checks that a nonempty password is available without displaying it.
 
     SMTP uses required STARTTLS with certificate verification through /usr/bin/curl.

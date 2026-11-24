@@ -8,8 +8,8 @@ enum Credential {
     guard FileManager.default.fileExists(atPath: envFile) else {
       throw PigeonError(
         explicitlySelected
-          ? "The selected env file does not exist."
-          : "Set PIGEON_SMTP_PASSWORD in the environment or in .env, or select a file with --env-file."
+          ? "The selected env file does not exist at \(envFile)."
+          : "Set PIGEON_SMTP_PASSWORD in the environment or in \(envFile), or pass --env-file."
       )
     }
     let contents = try String(contentsOfFile: envFile, encoding: .utf8)
