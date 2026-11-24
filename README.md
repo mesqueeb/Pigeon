@@ -5,27 +5,48 @@
 
 A tiny Swift command-line app for sending email from your Mac. Plain-text messages, your own SMTP provider, and 0 Swift dependencies!
 
-Requires macOS 13+ and Swift 6+. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
+Runs on macOS 13 or later on Apple silicon and Intel Macs. Uses macOS’s built-in curl for SMTP with verified STARTTLS.
 
-## Setup
+## Install
 
-From the repository directory:
+### Homebrew
+
+```sh
+brew install mesqueeb/tap/pigeon
+```
+
+Homebrew installs a prebuilt executable and the example configuration files.
+
+### Build from source
+
+Use Swift 6 or later and run this from the repository directory.
 
 ```sh
 swift build -c release
-mkdir -p .local
-cp config.example.json .local/config.json
-cp .env.example .env
-chmod 600 .env
 ```
 
-Add your SMTP and sender details to `.local/config.json`, and your password to `.env`:
+Use `.build/release/pigeon` in place of `pigeon` in the examples below.
+
+## Setup
+
+Choose a working directory for your SMTP configuration and credentials. If you built from source, run this from the repository directory and set `pigeon_examples=.` in the first line.
+
+```sh
+pigeon_examples="$(brew --prefix mesqueeb/tap/pigeon)/share/pigeon"
+mkdir -p .local
+cp -i "$pigeon_examples/config.example.json" .local/config.json
+if [ ! -e .env ]; then
+  install -m 600 "$pigeon_examples/.env.example" .env
+fi
+```
+
+Add your SMTP and sender details to `.local/config.json` and your password to `.env`.
 
 ```dotenv
 PIGEON_SMTP_PASSWORD=your-app-specific-password
 ```
 
-Both are ignored by Git. Keep `.env` private: it stores the password as plain text.
+Pigeon’s source repository ignores both files. Keep `.env` private because it stores the password as plain text.
 
 Using iCloud? Log in with your primary iCloud email and an [app-specific password](https://support.apple.com/en-us/102654). Your `from` address can be a custom address configured for that account.
 
@@ -34,7 +55,7 @@ Using iCloud? Log in with your primary iCloud email and an [app-specific passwor
 Write your email in `.local/message.txt`, then preview it:
 
 ```sh
-.build/release/pigeon send --config .local/config.json --to friend@example.com --subject "Hello!" --body-file .local/message.txt --dry-run
+pigeon send --config .local/config.json --to friend@example.com --subject "Hello!" --body-file .local/message.txt --dry-run
 ```
 
 Remove `--dry-run` to send. Repeat `--to`, `--cc`, or `--bcc` to add more recipients of each type. At least one `--to` address is required. BCC addresses are used for SMTP delivery and omitted from the message headers.
@@ -48,11 +69,11 @@ After sending, Pigeon saves the same message to your IMAP Sent folder. Configure
 Pigeon checks access to the folder before sending. If SMTP accepts the email but saving fails, it exits with code `2` and keeps a private `.eml` recovery file. **Do not resend.** After checking Sent for an existing copy, save only the missing copy:
 
 ```sh
-.build/release/pigeon save-sent --config .local/config.json --message-file "/path/from/the/error.eml"
+pigeon save-sent --config .local/config.json --message-file "/path/from/the/error.eml"
 ```
 
 Messages and copies are never retried automatically. If submission fails, check the destination before retrying.
 
 ## Documentation
 
-Run `.build/release/pigeon --help` for the command reference. See the [source](Sources/Pigeon) for implementation details.
+Run `pigeon --help` for the command reference. See the [source](Sources/Pigeon) for implementation details.
