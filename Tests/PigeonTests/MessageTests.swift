@@ -13,6 +13,86 @@ struct MessageTests {
     senderName: "Sender"
   )
 
+  @Test(arguments: [false, true]) func attachmentsPreserveContentAndMessageHeaders(
+    isReply: Bool
+  ) throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "pigeon-test-\(UUID().uuidString)"
+    )
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let pdfBytes = Data(UInt8.min ... UInt8.max)
+    let textBytes = Data("Notes\r\n".utf8)
+    let pdf = directory.appendingPathComponent("請求 書.pdf")
+    let notes = directory.appendingPathComponent("notes with spaces.txt")
+    try pdfBytes.write(to: pdf)
+    try textBytes.write(to: notes)
+    let reply =
+      isReply
+      ? try ReplyHeaders(parent: "parent@example.com", references: ["root@example.com"]) : nil
+    let message = Message(
+      to: ["to1@example.com", "to2@example.com"],
+      cc: ["cc1@example.com", "cc2@example.com"],
+      bcc: ["bcc1@example.com", "bcc2@example.com"],
+      subject: isReply ? "Re: Hello" : "Hello",
+      body: "Body\nSecond line",
+      reply: reply,
+      attachments: [try Attachment(path: pdf.path), try Attachment(path: notes.path)]
+    )
+
+    let rendered = try message.render(configuration: configuration)
+    let multipart = try #require(
+      rendered.components(separatedBy: "\r\n")
+        .first { $0.hasPrefix("Content-Type: multipart/mixed;") }
+    )
+    let boundary = try #require(multipart.split(separator: "\"").dropFirst().first)
+    let parts = rendered.components(separatedBy: "\r\n--\(boundary)")
+    try #require(parts.count == 5)
+    #expect(parts.last == "--\r\n")
+    #expect(parts[0].contains("\r\nTo: to1@example.com, to2@example.com\r\n"))
+    #expect(parts[0].contains("\r\nCc: cc1@example.com, cc2@example.com\r\n"))
+    #expect(!parts[0].lowercased().contains("\r\nbcc:"))
+    for address in message.bcc { #expect(!parts[0].contains(address)) }
+    #expect(
+      message.envelopeRecipients == [
+        "to1@example.com", "to2@example.com", "cc1@example.com", "cc2@example.com",
+        "bcc1@example.com", "bcc2@example.com",
+      ]
+    )
+    #expect(parts[0].contains("\r\nIn-Reply-To: <parent@example.com>\r\n") == isReply)
+    #expect(
+      parts[0].contains("\r\nReferences: <root@example.com>\r\n <parent@example.com>\r\n")
+        == isReply
+    )
+
+    let expectedParts = [
+      (
+        type: "text/plain; charset=UTF-8", filename: nil as String?,
+        bytes: Data("Body\r\nSecond line".utf8)
+      ),
+      (
+        type: "application/pdf", filename: "filename*=UTF-8''%E8%AB%8B%E6%B1%82%20%E6%9B%B8.pdf",
+        bytes: pdfBytes
+      ), (type: "text/plain", filename: #"filename="notes with spaces.txt""#, bytes: textBytes),
+    ]
+    for (part, expected) in zip(parts.dropFirst().dropLast(), expectedParts) {
+      let sections = part.components(separatedBy: "\r\n\r\n")
+      try #require(sections.count == 2)
+      let headers = sections[0]
+      #expect(headers.contains("\r\nContent-Type: \(expected.type)\r\n"))
+      #expect(headers.contains("\r\nContent-Transfer-Encoding: base64"))
+      if let filename = expected.filename {
+        #expect(headers.contains("\r\nContent-Disposition: attachment;"))
+        #expect(headers.contains(filename))
+      }
+      let base64 = sections[1]
+      #expect(base64.components(separatedBy: "\r\n").allSatisfy { $0.utf8.count <= 76 })
+      #expect(
+        Data(base64Encoded: base64.replacingOccurrences(of: "\r\n", with: "")) == expected.bytes
+      )
+    }
+  }
+
   @Test func blindCopiesAreOnlyEnvelopeRecipients() throws {
     let message = Message(
       to: ["to1@example.com", "to2@example.com"],
@@ -20,7 +100,8 @@ struct MessageTests {
       bcc: ["bcc1@example.com", "bcc2@example.com"],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
 
     let arguments = MailClient.smtpArguments(
@@ -50,11 +131,14 @@ struct MessageTests {
       bcc: [],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
 
     let rendered = try message.render(configuration: configuration)
     #expect(message.envelopeRecipients == ["to@example.com"])
+    #expect(rendered.contains("\r\nContent-Type: text/plain; charset=UTF-8\r\n"))
+    #expect(!rendered.contains("multipart/mixed"))
     #expect(!rendered.contains("\r\nCc:"))
     #expect(!rendered.contains("\r\nBcc:"))
     #expect(!rendered.contains("\r\nIn-Reply-To:"))
@@ -64,7 +148,15 @@ struct MessageTests {
   @Test func longRecipientHeadersFoldWithoutChangingAddresses() throws {
     let to = (1 ... 60).map { "primary-\($0)@example.com" }
     let cc = (1 ... 60).map { "copy-\($0)@example.com" }
-    let message = Message(to: to, cc: cc, bcc: [], subject: "Hello", body: "Hello!", reply: nil)
+    let message = Message(
+      to: to,
+      cc: cc,
+      bcc: [],
+      subject: "Hello",
+      body: "Hello!",
+      reply: nil,
+      attachments: []
+    )
 
     let rendered = try message.render(configuration: configuration)
     let lines = rendered.split(separator: "\r\n")
@@ -84,7 +176,8 @@ struct MessageTests {
       bcc: [],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
 
     #expect(throws: PigeonError.self) { try message.render(configuration: configuration) }
@@ -97,7 +190,8 @@ struct MessageTests {
       bcc: ["bcc@example.com"],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
 
     #expect(throws: PigeonError.self) { try message.render(configuration: configuration) }
@@ -111,7 +205,8 @@ struct MessageTests {
       bcc: [],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
     let invalidBcc = Message(
       to: ["to@example.com"],
@@ -119,7 +214,8 @@ struct MessageTests {
       bcc: [address],
       subject: "Hello",
       body: "Hello!",
-      reply: nil
+      reply: nil,
+      attachments: []
     )
 
     #expect(throws: PigeonError.self) { try invalidCc.render(configuration: configuration) }
@@ -137,7 +233,8 @@ struct MessageTests {
       bcc: [],
       subject: "Re: Hello",
       body: "Hello!",
-      reply: reply
+      reply: reply,
+      attachments: []
     )
 
     let rendered = try message.render(configuration: configuration)

@@ -9,6 +9,7 @@ struct Message {
   let subject: String
   let body: String
   let reply: ReplyHeaders?
+  let attachments: [Attachment]
 
   var envelopeRecipients: [String] { to + cc + bcc }
 
@@ -28,21 +29,37 @@ struct Message {
     let domain = configuration.from.split(separator: "@").last!
     let normalizedBody = body.replacingOccurrences(of: "\r\n", with: "\n")
       .replacingOccurrences(of: "\r", with: "\n").replacingOccurrences(of: "\n", with: "\r\n")
-    let encodedBody = Data(normalizedBody.utf8)
-      .base64EncodedString(options: [
-        .lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed,
-      ])
+    let textPart = [
+      "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "",
+      mimeBase64(Data(normalizedBody.utf8)),
+    ]
     var headers = ["From: \(sender)", try addressHeader(named: "To", addresses: to)]
     if !cc.isEmpty { try headers.append(addressHeader(named: "Cc", addresses: cc)) }
     if let reply { headers.append(contentsOf: reply.lines) }
-    return
-      (headers + [
-        "Subject: \(encodedHeader(subject))", "Date: \(date.string(from: Date()))",
-        "Message-ID: <\(UUID().uuidString.lowercased())@\(domain)>", "MIME-Version: 1.0",
-        "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "",
-        encodedBody, "",
-      ])
-      .joined(separator: "\r\n")
+    headers += [
+      "Subject: \(encodedHeader(subject))", "Date: \(date.string(from: Date()))",
+      "Message-ID: <\(UUID().uuidString.lowercased())@\(domain)>", "MIME-Version: 1.0",
+    ]
+    guard !attachments.isEmpty else { return (headers + textPart + [""]).joined(separator: "\r\n") }
+
+    let boundary = "pigeon-\(UUID().uuidString.lowercased())"
+    headers += ["Content-Type: multipart/mixed; boundary=\"\(boundary)\"", "", "--\(boundary)"]
+    var lines = headers + textPart
+    for attachment in attachments {
+      lines += [
+        "--\(boundary)", "Content-Type: \(attachment.mediaType)",
+        "Content-Transfer-Encoding: base64", attachment.disposition, "",
+        mimeBase64(attachment.data),
+      ]
+    }
+    lines += ["--\(boundary)--", ""]
+    return lines.joined(separator: "\r\n")
+  }
+
+  private func mimeBase64(_ data: Data) -> String {
+    data.base64EncodedString(options: [
+      .lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed,
+    ])
   }
 
   private func addressHeader(named field: String, addresses: [String]) throws -> String {

@@ -22,12 +22,15 @@ final class CLITests {
     )
     try "Hello\n"
       .write(to: directory.appendingPathComponent("body.txt"), atomically: true, encoding: .utf8)
+    for filename in ["請求 書.pdf", "notes with spaces.txt"] {
+      try Data([0x00, 0xff]).write(to: directory.appendingPathComponent(filename))
+    }
     let args = [
       "send", "--config", "config.json", "--subject", "Re: Hello", "--body-file", "body.txt",
       "--dry-run", "--to", "first@example.com", "--cc", "copy1@example.com", "--bcc",
       "blind1@example.com", "--to", "second@example.com", "--cc", "copy2@example.com", "--bcc",
       "blind2@example.com", "--reference", "<root@example.com>", "--reference",
-      "<middle@example.com>",
+      "<middle@example.com>", "--attach", "請求 書.pdf", "--attach", "notes with spaces.txt",
     ]
 
     let preview = try run(
@@ -36,6 +39,8 @@ final class CLITests {
     )
     #expect(preview.status == 0, "\(preview.output)")
     #expect(!preview.output.contains("\r"))
+    #expect(preview.output.contains("\nAttachment: 請求 書.pdf\n"))
+    #expect(preview.output.contains("\nAttachment: notes with spaces.txt\n"))
     #expect(preview.output.contains("\nTo: first@example.com, second@example.com\n"))
     #expect(preview.output.contains("\nCc: copy1@example.com, copy2@example.com\n"))
     #expect(preview.output.contains("\nBcc (SMTP only): blind1@example.com, blind2@example.com\n"))

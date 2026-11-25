@@ -69,6 +69,12 @@ Remove `--dry-run` to send. Repeat `--to`, `--cc`, or `--bcc` to add more recipi
 
 To reply in an existing thread, pass the Message-ID of the message you’re replying to with `--in-reply-to '<id@example.com>'` and use its subject with a `Re:` prefix. If that message has a `References` header, pass each ID in order with `--reference '<id@example.com>'`. If it has no `References` and a single `In-Reply-To` ID, pass that ID with `--reference`.
 
+Use `--attach FILE` with a new message or reply. Repeat it for each local file and quote paths with spaces. The dry-run preview lists the filenames.
+
+```sh
+pigeon send --to friend@example.com --subject "Documents" --body-file message.txt --attach "資料 1.pdf" --attach notes.txt --dry-run
+```
+
 Pigeon reads `PIGEON_SMTP_PASSWORD` from the environment first, then from `~/.config/pigeon/.env`. Pass `--config FILE` to use a different account config. With an explicit config, the fallback credential file is `.env` in the current directory. Use `--env-file FILE` to choose the fallback file for either setup.
 
 After sending, Pigeon saves the same message to your IMAP Sent folder. Configure `imap.host`, `imap.port`, and `imap.sentMailbox` in your JSON. The iCloud example uses `imap.mail.me.com:993` and `Sent Messages`, shared by the account’s aliases. Other providers may already save SMTP submissions automatically; appending a copy there can create duplicates.

@@ -33,7 +33,7 @@ import Foundation
       throw PigeonError("Unknown command. Run pigeon --help.")
     }
     var values: [String: String] = [:]
-    let repeatableOptions = ["--to", "--cc", "--bcc", "--reference"]
+    let repeatableOptions = ["--to", "--cc", "--bcc", "--reference", "--attach"]
     let singleValueOptions = [
       "--config", "--subject", "--body-file", "--env-file", "--message-file", "--in-reply-to",
     ]
@@ -116,13 +116,15 @@ import Foundation
       reply = nil
     }
     let body = try String(contentsOfFile: bodyPath, encoding: .utf8)
+    let attachments = try (repeatedValues["--attach"] ?? []).map { try Attachment(path: $0) }
     let message = Message(
       to: repeatedValues["--to"] ?? [],
       cc: repeatedValues["--cc"] ?? [],
       bcc: repeatedValues["--bcc"] ?? [],
       subject: subject,
       body: body,
-      reply: reply
+      reply: reply,
+      attachments: attachments
     )
     let rendered = try message.render(configuration: configuration)
     if flags.contains("--dry-run") {
@@ -131,6 +133,7 @@ import Foundation
       if !message.cc.isEmpty { print("Cc: \(message.cc.joined(separator: ", "))") }
       if !message.bcc.isEmpty { print("Bcc (SMTP only): \(message.bcc.joined(separator: ", "))") }
       if let reply { print(reply.lines.joined(separator: "\n")) }
+      for attachment in message.attachments { print("Attachment: \(attachment.filename)") }
       print("Subject: \(subject)\n")
       print(body)
       print("\nDry run: no credential was read and no network connection was made.")
@@ -154,7 +157,7 @@ import Foundation
     pigeon init
     pigeon send --to ADDRESS --subject TEXT --body-file FILE [--config FILE]
                 [--cc ADDRESS] [--bcc ADDRESS] [--in-reply-to MESSAGE-ID]
-                [--reference MESSAGE-ID] [--dry-run] [--env-file FILE]
+                [--reference MESSAGE-ID] [--attach FILE] [--dry-run] [--env-file FILE]
     pigeon credential [--config FILE] [--env-file FILE]
     pigeon save-sent --message-file FILE [--config FILE] [--env-file FILE]
 
@@ -166,7 +169,8 @@ import Foundation
     you're replying to.
     Keep that message's subject with a Re: prefix. Repeat --reference for its References IDs
     in order. If there are no References and a single In-Reply-To ID, pass it via --reference.
-    Messages are UTF-8 plain text.
+    Repeat --attach FILE to attach local files to a new message or reply. Quote paths with spaces.
+    The message body is UTF-8 plain text.
     --dry-run previews the sender and message without reading credentials or contacting the server.
     Credentials come from PIGEON_SMTP_PASSWORD in the environment, then ~/.config/pigeon/.env.
     With an explicit --config, the fallback is .env in the current directory.
